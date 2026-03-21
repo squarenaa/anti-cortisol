@@ -63,6 +63,14 @@
             to { stroke-dashoffset: 0; }
         }
 
+        /* Header scroll state */
+        .header-scrolled {
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
         /* Floating decoration animation */
         .float-slow {
             animation: floatSlow 20s ease-in-out infinite;
@@ -220,7 +228,7 @@
 
 
 <!-- TopAppBar (Dein Original) -->
-<header class="fixed top-0 w-full z-50 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md shadow-sm dark:shadow-none">
+<header id="main-header" class="fixed top-0 w-full z-50 transition-all duration-300">
 <div class="flex justify-between items-center max-w-7xl mx-auto px-6 py-4">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-emerald-900 dark:text-emerald-500" data-icon="spa">spa</span>
@@ -256,7 +264,7 @@ Guide sichern
 <main class="pt-24 overflow-x-hidden">
 
 <!-- Hero Section mit dekorativem Element -->
-<section class="relative min-h-[751px] flex flex-col justify-center items-center px-8 md:px-24 text-center">
+<section id="hero" class="relative min-h-[751px] flex flex-col justify-center items-center px-8 md:px-24 text-center">
 
 <!-- Dekoratives Hintergrund-Element (NEU) -->
 <div class="absolute inset-0 overflow-hidden pointer-events-none">
@@ -780,6 +788,20 @@ Guide sichern
         }, { threshold: 0.15 });
 
         document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+        // Header: transparent on hero, solid on scroll
+        const header = document.getElementById('main-header');
+        const hero = document.getElementById('hero');
+        const headerObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    header.classList.remove('header-scrolled');
+                } else {
+                    header.classList.add('header-scrolled');
+                }
+            });
+        }, { threshold: 0 });
+        headerObserver.observe(hero);
     });
 </script>
 </body>
