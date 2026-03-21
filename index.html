@@ -234,8 +234,25 @@
 <a href="#guide-sichern" class="hidden md:block bg-gradient-to-br from-primary to-primary-dim text-on-primary px-5 py-2 rounded-xl font-['Manrope'] text-sm font-medium hover:opacity-80 duration-200">
                 Guide sichern
             </a>
+<button onclick="toggleMobileMenu()" class="md:hidden flex items-center justify-center w-10 h-10 rounded-full hover:bg-zinc-100 transition-colors" aria-label="Menü öffnen">
+<span class="material-symbols-outlined text-emerald-900">menu</span>
+</button>
 </div>
 </header>
+
+<!-- Mobile Menu Overlay -->
+<div id="mobile-menu" class="fixed inset-0 z-[60] bg-white/95 backdrop-blur-md flex flex-col items-center justify-center gap-8 transition-all duration-300 opacity-0 pointer-events-none translate-x-full md:hidden" aria-hidden="true">
+<button onclick="toggleMobileMenu()" class="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full bg-zinc-100 hover:bg-zinc-200 transition-colors" aria-label="Menü schließen">
+<span class="material-symbols-outlined text-on-surface">close</span>
+</button>
+<a onclick="toggleMobileMenu()" class="text-emerald-900 font-['Manrope'] text-lg tracking-wide uppercase font-bold hover:text-emerald-700 transition-colors" href="#">Startseite</a>
+<a onclick="toggleMobileMenu()" class="text-zinc-600 font-['Manrope'] text-lg tracking-wide uppercase hover:text-emerald-700 transition-colors" href="#inhalt">Inhalt</a>
+<a onclick="toggleMobileMenu()" class="text-zinc-600 font-['Manrope'] text-lg tracking-wide uppercase hover:text-emerald-700 transition-colors" href="#kontakt">Kontakt</a>
+<a onclick="toggleMobileMenu()" href="#guide-sichern" class="mt-4 bg-gradient-to-br from-primary to-primary-dim text-on-primary px-8 py-3 rounded-xl font-['Manrope'] text-base font-medium hover:opacity-80 duration-200">
+Guide sichern
+</a>
+</div>
+
 <main class="pt-24 overflow-x-hidden">
 
 <!-- Hero Section mit dekorativem Element -->
@@ -727,6 +744,21 @@
 </footer>
 
 <script>
+    // Mobile Menu
+    function toggleMobileMenu() {
+        const menu = document.getElementById('mobile-menu');
+        const isOpen = !menu.classList.contains('pointer-events-none');
+        if (isOpen) {
+            menu.classList.add('opacity-0', 'pointer-events-none', 'translate-x-full');
+            menu.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+        } else {
+            menu.classList.remove('opacity-0', 'pointer-events-none', 'translate-x-full');
+            menu.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
     // Overlay Pages
     function openPage(id) {
         document.getElementById(id).classList.add('active');
