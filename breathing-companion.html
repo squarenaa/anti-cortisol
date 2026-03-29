@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0b0e1a" />
+  <title>Breathing Companion</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --bg:            #0b0e1a;
+      --surface:       rgba(255,255,255,0.06);
+      --surface-hover: rgba(255,255,255,0.11);
+      --border:        rgba(255,255,255,0.09);
+      --text:          #e8eaf6;
+      --text-muted:    rgba(232,234,246,0.5);
+      --accent:        #7c9fe6;
+      --inhale-clr:    #60a5fa;
+      --hold-clr:      #a78bfa;
+      --exhale-clr:    #34d399;
+      --hold2-clr:     #f472b6;
+      --radius:        18px;
+      --tr:            0.3s ease;
+    }
+
+    html { height: 100%; }
+
+    body {
+      min-height: 100%;
+      min-height: 100dvh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 10%, rgba(96,165,250,0.13) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 60% at 80% 90%, rgba(167,139,250,0.10) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    #app {
+      position: relative;
+      z-index: 1;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+    }
+
+    /* ── Header ── */
+    header {
+      width: 100%;
+      max-width: 500px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 20px 0;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .logo-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--inhale-clr), var(--hold-clr));
+      display: grid;
+      place-items: center;
+      font-size: 17px;
+    }
+
+    .header-chips {
+      display: flex;
+      gap: 8px;
+    }
+
+    .chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 5px 12px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .chip span { color: var(--text); font-weight: 600; }
+
+    /* ── Pattern Selector ── */
+    .pattern-scroll {
+      width: 100%;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      padding: 18px 0 4px;
+    }
+    .pattern-scroll::-webkit-scrollbar { display: none; }
+
+    .pattern-row {
+      display: flex;
+      gap: 8px;
+      padding: 0 20px;
+      width: max-content;
+    }
+
+    .pattern-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 9px 18px;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: var(--tr);
+      touch-action: manipulation;
+    }
+    .pattern-btn.active {
+      background: linear-gradient(135deg, rgba(96,165,250,0.22), rgba(167,139,250,0.22));
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    /* ── Circle ── */
+    .circle-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 20px 0;
+      gap: 0;
+    }
+
+    .circle-wrap {
+      position: relative;
+      width: min(280px, 68vw);
+      height: min(280px, 68vw);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .progress-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+    .progress-track { fill: none; stroke: rgba(255,255,255,0.07); stroke-width: 3; }
+    .progress-fill  { fill: none; stroke: var(--inhale-clr); stroke-width: 3; stroke-linecap: round; transition: stroke 0.6s ease; }
+
+    .orb {
+      width: 56%;
+      height: 56%;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, rgba(96,165,250,0.8), rgba(124,159,230,0.4) 40%, rgba(167,139,250,0.3) 70%);
+      box-shadow: 0 0 40px rgba(96,165,250,0.3), 0 0 80px rgba(96,165,250,0.15), inset 0 0 24px rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.9s ease, box-shadow 0.9s ease;
+      will-change: transform;
+    }
+
+    .orb::after {
+      content: '';
+      position: absolute;
+      width: 60%;
+      height: 35%;
+      top: 18%;
+      left: 18%;
+      border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(255,255,255,0.22), transparent);
+      pointer-events: none;
+    }
+
+    .timer-num {
+      font-size: clamp(1.8rem, 8vw, 2.4rem);
+      font-weight: 300;
+      color: rgba(255,255,255,0.92);
+      text-shadow: 0 0 20px rgba(255,255,255,0.4);
+      user-select: none;
+      position: relative;
+      z-index: 1;
+    }
+
+    .particles {
+      position: absolute;
+      inset: -20px;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .particle {
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      opacity: 0;
+    }
+
+    .phase-label {
+      margin-top: 18px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--inhale-clr);
+      transition: color 0.6s ease;
+      min-height: 1.4em;
+    }
+
+    /* ── Phase bar ── */
+    .phase-bar-wrap {
+      width: 100%;
+      max-width: 360px;
+      margin: 18px 0 6px;
+      padding: 0 20px;
+    }
+
+    .phase-segments {
+      display: flex;
+      gap: 6px;
+    }
+
+    .phase-seg {
+      flex: 1;
+      height: 5px;
+      border-radius: 3px;
+      background: var(--border);
+      overflow: hidden;
+    }
+
+    .phase-seg-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 3px;
+      transition: background 0.6s ease;
+    }
+
+    .phase-seg-labels {
+      display: flex;
+      gap: 6px;
+      margin-top: 5px;
+    }
+
+    .phase-seg-lbl {
+      flex: 1;
+      font-size: 0.6rem;
+      text-align: center;
+      color: var(--text-muted);
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      margin: 18px 0;
+    }
+
+    .btn-primary {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, var(--inhale-clr), var(--hold-clr));
+      color: #fff;
+      font-size: 1.5rem;
+      cursor: pointer;
+      box-shadow: 0 4px 24px rgba(96,165,250,0.45);
+      display: grid;
+      place-items: center;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      touch-action: manipulation;
+      -webkit-touch-callout: none;
+    }
+    .btn-primary:active { transform: scale(0.94); }
+
+    .btn-secondary {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+      font-size: 1.15rem;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: var(--tr);
+      touch-action: manipulation;
+    }
+    .btn-secondary:active { background: var(--surface-hover); }
+
+    /* ── Stats row ── */
+    .stats-row {
+      display: flex;
+      gap: 10px;
+      padding: 0 20px;
+      width: 100%;
+      max-width: 500px;
+      justify-content: center;
+    }
+
+    .stat-card {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 8px;
+      text-align: center;
+      max-width: 110px;
+    }
+
+    .stat-val {
+      font-size: 1.35rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, var(--inhale-clr), var(--hold-clr));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat-lbl {
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-top: 2px;
+    }
+
+    /* ── Pattern info ── */
+    .pattern-info {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin: 12px 20px 0;
+      width: calc(100% - 40px);
+      max-width: 460px;
+      text-align: center;
+    }
+
+    .pattern-info h3 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .pattern-info p {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    /* ── Sound ── */
+    .sound-row {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      padding: 8px 20px 0;
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 90px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+
+    /* ── Footer ── */
+    footer {
+      padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0));
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* ── Animations ── */
+    @keyframes particleFloat {
+      0%   { transform: translate(var(--px), var(--py)) scale(0); opacity: 0.9; }
+      100% { transform: translate(calc(var(--px)*2.5), calc(var(--py)*2.5)) scale(0.3); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🫁</div>
+      Breathing Companion
+    </div>
+    <div class="header-chips">
+      <div class="chip">🔥 <span id="streakVal">0</span>d</div>
+      <div class="chip">⏱ <span id="totalMinVal">0</span>m</div>
+    </div>
+  </header>
+
+  <!-- Pattern Scroll -->
+  <div class="pattern-scroll">
+    <div class="pattern-row" id="patternRow"></div>
+  </div>
+
+  <!-- Circle -->
+  <div class="circle-section">
+    <div class="circle-wrap" id="circleWrap">
+      <svg class="progress-svg" viewBox="0 0 300 300" id="progressSvg">
+        <circle class="progress-track" cx="150" cy="150" r="143"/>
+        <circle class="progress-fill" cx="150" cy="150" r="143" id="progressFill"/>
+      </svg>
+      <div class="particles" id="particlesContainer"></div>
+      <div class="orb" id="orb">
+        <span class="timer-num" id="timerNum">—</span>
+      </div>
+    </div>
+    <div class="phase-label" id="phaseLabel">Bereit</div>
+  </div>
+
+  <!-- Phase bar -->
+  <div class="phase-bar-wrap">
+    <div class="phase-segments" id="phaseSegments"></div>
+    <div class="phase-seg-labels" id="phaseSegLabels"></div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="btn-secondary" id="btnReset" title="Reset">⟳</button>
+    <button class="btn-primary"   id="btnStart">▶</button>
+    <button class="btn-secondary" id="btnSound" title="Sound">🔇</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-val" id="cycleVal">0</div><div class="stat-lbl">Zyklen</div></div>
+    <div class="stat-card"><div class="stat-val" id="sessionMinVal">0:00</div><div class="stat-lbl">Zeit</div></div>
+    <div class="stat-card"><div class="stat-val" id="breathsVal">0</div><div class="stat-lbl">Atemzüge</div></div>
+  </div>
+
+  <!-- Sound row -->
+  <div class="sound-row" id="soundRow">
+    <span>🎵</span>
+    <input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.3"/>
+    <span id="volLabel">30%</span>
+  </div>
+
+  <!-- Pattern info -->
+  <div class="pattern-info">
+    <h3 id="patternTitle">—</h3>
+    <p  id="patternDesc">—</p>
+  </div>
+
+  <footer>Atme bewusst · Bleib ruhig 🌿</footer>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────
+const PATTERNS = [
+  {
+    id: 'box', name: 'Box', subtitle: '4-4-4-4',
+    desc: 'Gleichmäßige 4-Sekunden-Phasen. Von Navy SEALs genutzt, um unter Druck fokussiert zu bleiben.',
+    phases: [
+      { key:'inhale', label:'Einatmen', dur:4, color:'#60a5fa' },
+      { key:'hold',   label:'Halten',   dur:4, color:'#a78bfa' },
+      { key:'exhale', label:'Ausatmen', dur:4, color:'#34d399' },
+      { key:'hold2',  label:'Pause',    dur:4, color:'#f472b6' },
+    ]
+  },
+  {
+    id: '478', name: '4-7-8', subtitle: 'Schlaf',
+    desc: 'Dr. Weils Methode: Langes Ausatmen aktiviert den Parasympathikus. Ideal vor dem Schlafen.',
+    phases: [
+      { key:'inhale', label:'Einatmen', dur:4, color:'#60a5fa' },
+      { key:'hold',   label:'Halten',   dur:7, color:'#a78bfa' },
+      { key:'exhale', label:'Ausatmen', dur:8, color:'#34d399' },
+    ]
+  },
+  {
+    id: 'calm', name: 'Calm', subtitle: '5-2-6-2',
+    desc: 'Sanfter Rhythmus für schnelle Stressreduktion. Aktiviert den Vagusnerv.',
+    phases: [
+      { key:'inhale', label:'Einatmen', dur:5, color:'#60a5fa' },
+      { key:'hold',   label:'Halten',   dur:2, color:'#a78bfa' },
+      { key:'exhale', label:'Ausatmen', dur:6, color:'#34d399' },
+      { key:'hold2',  label:'Pause',    dur:2, color:'#f472b6' },
+    ]
+  },
+  {
+    id: 'energy', name: 'Energie', subtitle: '6-2',
+    desc: 'Kurze dynamische Ausatmung aktiviert das sympathische Nervensystem. Perfekt am Morgen.',
+    phases: [
+      { key:'inhale', label:'Einatmen', dur:6, color:'#60a5fa' },
+      { key:'exhale', label:'Ausatmen', dur:2, color:'#34d399' },
+    ]
+  },
+  {
+    id: 'sigh', name: 'Seufzer', subtitle: '3-6',
+    desc: 'Stanford-Methode: Doppeltes Einatmen + langer Ausatmer — schnellste bekannte Stressreduktion.',
+    phases: [
+      { key:'inhale', label:'Einatmen ×2', dur:3, color:'#60a5fa' },
+      { key:'exhale', label:'Lang ausatmen', dur:6, color:'#34d399' },
+    ]
+  },
+];
+
+// ── STATE ─────────────────────────────────────────────────────────
+let currentPattern = PATTERNS[0];
+let running = false, phaseIndex = 0, phaseTimer = 0;
+let cycles = 0, totalBreaths = 0, sessionStart = null;
+let rafId = null, lastTs = null;
+let soundEnabled = false, volume = 0.3, audioCtx = null;
+let streak   = parseInt(localStorage.getItem('bc_streak')    || '0');
+let totalMin = parseFloat(localStorage.getItem('bc_totalMin')|| '0');
+let lastDate = localStorage.getItem('bc_lastDate') || '';
+
+const CIRCUM = 2 * Math.PI * 143;
+
+// ── DOM ───────────────────────────────────────────────────────────
+const orb           = document.getElementById('orb');
+const timerNum      = document.getElementById('timerNum');
+const phaseLabel    = document.getElementById('phaseLabel');
+const progressFill  = document.getElementById('progressFill');
+const btnStart      = document.getElementById('btnStart');
+const btnReset      = document.getElementById('btnReset');
+const btnSound      = document.getElementById('btnSound');
+const cycleVal      = document.getElementById('cycleVal');
+const sessionMinVal = document.getElementById('sessionMinVal');
+const breathsVal    = document.getElementById('breathsVal');
+const streakVal     = document.getElementById('streakVal');
+const totalMinVal   = document.getElementById('totalMinVal');
+const patternTitle  = document.getElementById('patternTitle');
+const patternDesc   = document.getElementById('patternDesc');
+const soundRow      = document.getElementById('soundRow');
+const volSlider     = document.getElementById('volSlider');
+const volLabel      = document.getElementById('volLabel');
+const particlesContainer = document.getElementById('particlesContainer');
+
+progressFill.style.strokeDasharray  = CIRCUM;
+progressFill.style.strokeDashoffset = CIRCUM;
+
+// ── BUILD UI ──────────────────────────────────────────────────────
+function buildPatterns() {
+  const row = document.getElementById('patternRow');
+  row.innerHTML = '';
+  PATTERNS.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'pattern-btn' + (p.id === currentPattern.id ? ' active' : '');
+    btn.innerHTML = `${p.name} <small style="opacity:.6">${p.subtitle}</small>`;
+    btn.onclick = () => {
+      if (running) stop();
+      currentPattern = p;
+      document.querySelectorAll('.pattern-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      resetSession();
+      buildPhaseBar();
+      updateInfo();
+    };
+    row.appendChild(btn);
+  });
+}
+
+function buildPhaseBar() {
+  const segs  = document.getElementById('phaseSegments');
+  const lbls  = document.getElementById('phaseSegLabels');
+  segs.innerHTML = ''; lbls.innerHTML = '';
+  currentPattern.phases.forEach((p, i) => {
+    const seg  = document.createElement('div');
+    seg.className = 'phase-seg';
+    seg.style.flex = p.dur;
+    const fill = document.createElement('div');
+    fill.className = 'phase-seg-fill';
+    fill.id = `sf-${i}`;
+    seg.appendChild(fill);
+    segs.appendChild(seg);
+    const lbl  = document.createElement('div');
+    lbl.className = 'phase-seg-lbl';
+    lbl.style.flex = p.dur;
+    lbl.textContent = `${p.label} ${p.dur}s`;
+    lbls.appendChild(lbl);
+  });
+}
+
+function updateInfo() {
+  patternTitle.textContent = `${currentPattern.name} (${currentPattern.subtitle})`;
+  patternDesc.textContent  = currentPattern.desc;
+}
+
+function updateHeaderStats() {
+  streakVal.textContent   = streak;
+  totalMinVal.textContent = Math.round(totalMin);
+}
+
+// ── RENDER ────────────────────────────────────────────────────────
+function render(phase, progress) {
+  // Orb scale
+  let scale;
+  if (phase.key === 'inhale')  scale = 0.72 + progress * 0.46;
+  else if (phase.key === 'exhale') scale = 1.18 - progress * 0.46;
+  else if (phase.key === 'hold')   scale = 1.18;
+  else scale = 0.72;
+  orb.style.transform = `scale(${scale})`;
+
+  // Orb color
+  const c = phase.color;
+  orb.style.background = `radial-gradient(circle at 35% 35%, ${c}cc, ${c}55 45%, rgba(167,139,250,0.25) 75%)`;
+  orb.style.boxShadow  = `0 0 ${Math.round(30 + scale*20)}px ${c}44, 0 0 70px ${c}1a, inset 0 0 24px rgba(255,255,255,0.09)`;
+
+  // Label & ring
+  phaseLabel.textContent = phase.label;
+  phaseLabel.style.color = c;
+  progressFill.style.strokeDashoffset = CIRCUM * (1 - progress);
+  progressFill.style.stroke = c;
+
+  // Phase bar
+  currentPattern.phases.forEach((p, i) => {
+    const f = document.getElementById(`sf-${i}`);
+    if (!f) return;
+    if (i < phaseIndex)      { f.style.width = '100%'; f.style.background = p.color; }
+    else if (i === phaseIndex){ f.style.width = `${progress*100}%`; f.style.background = c; }
+    else                     { f.style.width = '0%'; }
+  });
+}
+
+// ── PARTICLES ─────────────────────────────────────────────────────
+function spawnParticles(color) {
+  for (let i = 0; i < 8; i++) {
+    const el = document.createElement('div');
+    el.className = 'particle';
+    const angle = (i / 8) * 2 * Math.PI;
+    const dist  = 55 + Math.random() * 30;
+    const px = Math.cos(angle) * dist, py = Math.sin(angle) * dist;
+    el.style.cssText = `left:calc(50% - 2.5px);top:calc(50% - 2.5px);background:${color};--px:${px}px;--py:${py}px;animation:particleFloat 1.1s ease-out ${Math.random()*0.15}s forwards;`;
+    particlesContainer.appendChild(el);
+    setTimeout(() => el.remove(), 1400);
+  }
+}
+
+// ── AUDIO ─────────────────────────────────────────────────────────
+const TONES = { inhale:{f:528,d:0.6}, hold:{f:396,d:0.4}, exhale:{f:432,d:0.8}, hold2:{f:285,d:0.4} };
+
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playTone(key) {
+  if (!soundEnabled || !audioCtx) return;
+  const t = TONES[key] || TONES.inhale;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.frequency.value = t.f;
+  gain.gain.setValueAtTime(0, audioCtx.currentTime);
+  gain.gain.linearRampToValueAtTime(volume * 0.28, audioCtx.currentTime + 0.06);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + t.d);
+  osc.start(); osc.stop(audioCtx.currentTime + t.d + 0.1);
+}
+
+// ── SESSION ───────────────────────────────────────────────────────
+function start() {
+  running = true;
+  sessionStart = sessionStart || Date.now();
+  btnStart.textContent = '⏸';
+  lastTs = performance.now();
+  ensureAudio();
+  playTone(currentPattern.phases[phaseIndex].key);
+  loop();
+}
+
+function stop() {
+  running = false;
+  btnStart.textContent = '▶';
+  cancelAnimationFrame(rafId);
+}
+
+function resetSession() {
+  stop();
+  phaseIndex = phaseTimer = cycles = totalBreaths = 0;
+  sessionStart = null;
+  timerNum.textContent = '—';
+  phaseLabel.textContent = 'Bereit';
+  phaseLabel.style.color = 'var(--inhale-clr)';
+  orb.style.transform = 'scale(0.88)';
+  orb.style.background = ''; orb.style.boxShadow = '';
+  progressFill.style.strokeDashoffset = CIRCUM;
+  progressFill.style.stroke = 'var(--inhale-clr)';
+  cycleVal.textContent = sessionMinVal.textContent = breathsVal.textContent = '0';
+  sessionMinVal.textContent = '0:00';
+  currentPattern.phases.forEach((_, i) => { const f = document.getElementById(`sf-${i}`); if(f) f.style.width='0%'; });
+}
+
+function saveStats() {
+  if (!sessionStart) return;
+  const mins = (Date.now() - sessionStart) / 60000;
+  if (mins < 0.3) return;
+  totalMin += mins;
+  localStorage.setItem('bc_totalMin', totalMin.toFixed(2));
+  const today = new Date().toDateString();
+  const yest  = new Date(Date.now() - 86400000).toDateString();
+  if (lastDate !== today) {
+    streak = lastDate === yest ? streak + 1 : 1;
+    lastDate = today;
+    localStorage.setItem('bc_streak', streak);
+    localStorage.setItem('bc_lastDate', lastDate);
+  }
+  updateHeaderStats();
+}
+
+function loop(ts) {
+  if (!running) return;
+  const now   = performance.now();
+  const delta = (now - (lastTs || now)) / 1000;
+  lastTs = now;
+
+  const phase = currentPattern.phases[phaseIndex];
+  phaseTimer += delta;
+  const progress  = Math.min(phaseTimer / phase.dur, 1);
+  const remaining = Math.max(0, Math.ceil(phase.dur - phaseTimer));
+  timerNum.textContent = remaining;
+  render(phase, progress);
+
+  if (phaseTimer >= phase.dur) {
+    phaseTimer = 0; phaseIndex++;
+    if (phaseIndex >= currentPattern.phases.length) {
+      phaseIndex = 0; cycles++; totalBreaths++;
+      cycleVal.textContent = cycles; breathsVal.textContent = totalBreaths;
+      spawnParticles(currentPattern.phases[0].color);
+    }
+    if (running) playTone(currentPattern.phases[phaseIndex].key);
+  }
+
+  if (sessionStart) {
+    const e = (Date.now() - sessionStart) / 1000;
+    sessionMinVal.textContent = `${Math.floor(e/60)}:${Math.floor(e%60).toString().padStart(2,'0')}`;
+  }
+
+  rafId = requestAnimationFrame(loop);
+}
+
+// ── EVENTS ────────────────────────────────────────────────────────
+btnStart.addEventListener('click', () => running ? stop() : start());
+
+btnReset.addEventListener('click', () => { saveStats(); resetSession(); });
+
+btnSound.addEventListener('click', () => {
+  ensureAudio();
+  soundEnabled = !soundEnabled;
+  btnSound.textContent = soundEnabled ? '🔊' : '🔇';
+  soundRow.style.display = soundEnabled ? 'flex' : 'none';
+});
+
+volSlider.addEventListener('input', () => {
+  volume = parseFloat(volSlider.value);
+  volLabel.textContent = `${Math.round(volume*100)}%`;
+});
+
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveStats(); });
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); btnStart.click(); }
+  if (e.code === 'KeyR')  btnReset.click();
+  if (e.code === 'KeyS')  btnSound.click();
+  const d = parseInt(e.code.replace('Digit','')) - 1;
+  if (d >= 0 && d < PATTERNS.length) document.querySelectorAll('.pattern-btn')[d]?.click();
+});
+
+// ── INIT ──────────────────────────────────────────────────────────
+buildPatterns();
+buildPhaseBar();
+updateInfo();
+updateHeaderStats();
+</script>
+</body>
+</html>
